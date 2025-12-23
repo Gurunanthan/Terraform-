@@ -1,0 +1,10 @@
+ami_id = "ami-xxxxxxxxxxxxxxxxx"
+
+cidr_values_for_non_prod_instances = [
+  "10.0.0.0/24"
+]
+
+tags_for_ec2_instance = {
+  Name        = "Example"
+  Environment = "non-prod"
+}

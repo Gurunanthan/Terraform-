@@ -1,0 +1,616 @@
+# Terraform Project – Complete Line-by-Line Explanation
+
+This document explains **every file and every line** in your Terraform project. The goal is that even if you open this after 6 months, you will understand *what exists, why it exists, and how Terraform uses it*.
+
+---
+
+## 1️⃣ Big Picture (Read This First)
+
+Terraform works by:
+
+1. Reading **all `.tf` files in a directory** (file names don’t matter)
+2. Merging them into **one configuration**
+3. Comparing:
+
+   * Desired state (your code)
+   * Current state (Terraform state file)
+   * Actual AWS infrastructure
+4. Making AWS match the desired state
+
+Your project is split into files **only for human clarity**.
+
+---
+
+## 2️⃣ versions.tf
+
+### Purpose
+
+Locks Terraform and provider versions so behavior is predictable.
+
+```hcl
+terraform {
+```
+
+* Declares Terraform-level settings
+
+```hcl
+  required_version = ">= 1.5.0"
+```
+
+* Ensures Terraform CLI version is at least 1.5.0
+* Prevents older Terraform from running this code
+
+```hcl
+  required_providers {
+```
+
+* Block that lists all providers used
+
+```hcl
+    aws = {
+```
+
+* Declares AWS provider
+
+```hcl
+      source  = "hashicorp/aws"
+```
+
+* Provider is downloaded from HashiCorp registry
+
+```hcl
+      version = "~> 5.0"
+```
+
+* Any 5.x version, but not 6.x
+* Prevents breaking changes
+
+```hcl
+    }
+  }
+}
+```
+
+* Closes provider and terraform blocks
+
+---
+
+## 3️⃣ backend.tf
+
+### Purpose
+
+Defines **where Terraform stores state**.
+
+```hcl
+terraform {
+```
+
+* Terraform-level configuration
+
+```hcl
+  backend "local" {
+```
+
+* Uses local backend (state stored on disk)
+
+```hcl
+    path = "terraform.tfstate"
+```
+
+* State file name
+
+```hcl
+  }
+}
+```
+
+* End backend configuration
+
+📌 State is Terraform’s memory. Without it, Terraform cannot function.
+
+---
+
+## 4️⃣ providers.tf
+
+### Purpose
+
+Configures **how Terraform talks to AWS**.
+
+```hcl
+provider "aws" {
+```
+
+* Declares AWS provider
+
+```hcl
+  region = var.primary_region
+```
+
+* Region comes from a variable
+* Region **must be set here**, not inside resources
+
+```hcl
+}
+```
+
+* Ends provider block
+
+---
+
+## 5️⃣ variables.tf
+
+### Purpose
+
+Defines all **inputs** to the Terraform configuration.
+
+Terraform variables:
+
+* Have a **type**
+* May have a **default**
+* Can be overridden via tfvars, CLI, or env vars
+
+---
+
+### instance_count_for_non_prod
+
+```hcl
+variable "instance_count_for_non_prod" {
+```
+
+* Declares a variable
+
+```hcl
+  description = "Inform the instance count for the dev and qa"
+```
+
+* Human-readable explanation
+
+```hcl
+  type = number
+```
+
+* Must be numeric
+
+```hcl
+  default = 1
+}
+```
+
+* Default value if not overridden
+
+---
+
+### region_for_non_prod
+
+```hcl
+variable "region_for_non_prod" {
+```
+
+* Variable declaration
+
+```hcl
+  type = set(string)
+```
+
+* Set ensures:
+
+  * No duplicates
+  * Order does not matter
+
+```hcl
+  default = [
+    "us-east-1",
+    "ap-northeast-3"
+  ]
+}
+```
+
+* Two allowed regions
+
+📌 Sets are for **membership**, not ordering.
+
+---
+
+### instance_type_for_non_prod
+
+```hcl
+variable "instance_type_for_non_prod" {
+```
+
+* Variable declaration
+
+```hcl
+  type = string
+```
+
+* Single value
+
+```hcl
+  default = "t3.micro"
+}
+```
+
+* Default EC2 instance type
+
+---
+
+### delete_on_termination
+
+```hcl
+variable "delete_on_termination" {
+```
+
+* Variable declaration
+
+```hcl
+  type = bool
+```
+
+* true / false
+
+```hcl
+  default = true
+}
+```
+
+* Whether EBS volume is deleted when EC2 terminates
+
+---
+
+### ami_id
+
+```hcl
+variable "ami_id" {
+```
+
+* Variable declaration
+
+```hcl
+  type = string
+```
+
+* AMI ID must be a string
+
+```hcl
+  default = "ami-053e5b2b49d1b2a82"
+}
+```
+
+* Ubuntu AMI ID
+
+---
+
+### cidr_values_for_non_prod_instances
+
+```hcl
+variable "cidr_values_for_non_prod_instances" {
+```
+
+* Variable declaration
+
+```hcl
+  type = list(string)
+```
+
+* Ordered list
+* Allows indexing
+
+```hcl
+  default = [
+    "10.0.0.0/24",
+    "11.0.0.0/24",
+    "0.0.0.0/24"
+  ]
+}
+```
+
+* CIDR allow list
+
+---
+
+### tags_for_ec2_instance
+
+```hcl
+variable "tags_for_ec2_instance" {
+```
+
+* Variable declaration
+
+```hcl
+  type = map(string)
+```
+
+* Key-value pairs
+
+```hcl
+  default = {
+    Name   = "HelloWorld"
+    Region = "ap-northeast-3"
+  }
+}
+```
+
+* Default tags
+
+---
+
+### Object variable
+
+```hcl
+variable "template_for_instance_using_dict_aka_object" {
+```
+
+* Declares object
+
+```hcl
+  type = {
+```
+
+* Inline object schema
+
+```hcl
+    name                  = string
+    type                  = string
+    delete_on_termination = bool
+    region                = string
+    count                 = number
+  }
+```
+
+* Fixed structure
+
+```hcl
+  default = {
+    name                  = "Instance name from dict aka object"
+    type                  = "t3.micro"
+    delete_on_termination = true
+    region                = "ap-northeast-3"
+    count                 = 2
+  }
+}
+```
+
+* Default object value
+
+---
+
+### Tuple variable
+
+```hcl
+variable "creating_variable_using_tuple" {
+```
+
+* Tuple declaration
+
+```hcl
+  type = tuple([string, bool, number])
+```
+
+* Fixed positions:
+
+  * index 0 → string
+  * index 1 → bool
+  * index 2 → number
+
+```hcl
+  default = ["", true, 1]
+}
+```
+
+* Default tuple value
+
+---
+
+## 6️⃣ terraform.tfvars
+
+### Purpose
+
+Supplies **real values** for variables.
+
+Terraform automatically loads this file.
+
+```hcl
+ami_id = "ami-053e5b2b49d1b2a82"
+```
+
+* Overrides AMI variable
+
+```hcl
+cidr_values_for_non_prod_instances = [
+  "10.0.0.0/24",
+  "11.0.0.0/24",
+  "0.0.0.0/24"
+]
+```
+
+* Overrides CIDR list
+
+```hcl
+tags_for_ec2_instance = {
+  Name        = "NonProd-EC2"
+  Environment = "non-prod"
+}
+```
+
+* Overrides default tags
+
+---
+
+## 7️⃣ terraform.tfvars.example
+
+### Purpose
+
+Template for others.
+
+* Safe to commit
+* No real values
+* Documentation by example
+
+---
+
+## 8️⃣ main.tf
+
+### Purpose
+
+Defines **actual AWS infrastructure**.
+
+---
+
+### Default VPC lookup
+
+```hcl
+data "aws_vpc" "default" {
+```
+
+* Data source (read-only)
+
+```hcl
+  default = true
+}
+```
+
+* Fetches default VPC
+
+---
+
+### Security Group
+
+```hcl
+resource "aws_security_group" "non_prod_sg" {
+```
+
+* Declares security group
+
+```hcl
+  vpc_id = data.aws_vpc.default.id
+}
+```
+
+* Attaches SG to default VPC
+
+---
+
+### Ingress rules
+
+```hcl
+resource "aws_vpc_security_group_ingress_rule" "https" {
+```
+
+* HTTPS rule
+
+```hcl
+  for_each = toset(var.cidr_values_for_non_prod_instances)
+```
+
+* One rule per CIDR
+
+```hcl
+  from_port = 443
+  to_port   = 443
+  ip_protocol = "tcp"
+}
+```
+
+* Allows HTTPS traffic
+
+---
+
+### Egress rule
+
+```hcl
+resource "aws_vpc_security_group_egress_rule" "all" {
+```
+
+* Allow all outbound traffic
+
+```hcl
+  cidr_ipv4 = "0.0.0.0/0"
+}
+```
+
+* No outbound restriction
+
+---
+
+### EC2 instance
+
+```hcl
+resource "aws_instance" "non_prod" {
+```
+
+* EC2 instance declaration
+
+```hcl
+  count = var.instance_count_for_non_prod
+```
+
+* Multiple instances if needed
+
+```hcl
+  ami = var.ami_id
+```
+
+* AMI from variable
+
+```hcl
+  instance_type = var.instance_type_for_non_prod
+```
+
+* Instance type
+
+```hcl
+  root_block_device {
+    delete_on_termination = var.delete_on_termination
+  }
+```
+
+* EBS lifecycle
+
+```hcl
+  tags = merge(var.tags_for_ec2_instance, { Index = count.index })
+}
+```
+
+* Merge tags and add index
+
+---
+
+## 9️⃣ outputs.tf
+
+### Purpose
+
+Expose useful values after apply.
+
+```hcl
+output "instance_ids" {
+```
+
+* Output declaration
+
+```hcl
+  value = aws_instance.non_prod[*].id
+}
+```
+
+* List of EC2 IDs
+
+```hcl
+output "instance_public_ips" {
+  value = aws_instance.non_prod[*].public_ip
+}
+```
+
+* List of public IPs
+
+---
+
+## 🔚 Final Mental Model
+
+* Terraform reads everything together
+* Variables define **inputs**
+* Providers define **where**
+* Resources define **what**
+* State remembers **what exists**
+* Outputs expose **results**
+
+This is a **production-grade Terraform structure**.
